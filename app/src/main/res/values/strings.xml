@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Reel Counter</string>
+    <string name="accessibility_service_description">Counts reels/shorts watched in social apps by detecting swipe gestures. Does not read, store, or transmit any on-screen content.</string>
+</resources>
