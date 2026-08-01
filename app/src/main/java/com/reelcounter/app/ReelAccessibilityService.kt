@@ -17,6 +17,14 @@ import java.util.Date
 import java.util.Locale
 import kotlin.math.abs
 
+/**
+ * Detects reel/short swipes in target apps by watching for TYPE_VIEW_SCROLLED
+ * events on those apps' full-screen video feeds, debounced so one swipe = one count.
+ *
+ * This is a heuristic, not an official API â€” there is no public signal for
+ * "a new reel started playing." Expect occasional over/undercounts, and
+ * re-tune debounceMs or targetPackages if an app update changes behavior.
+ */
 class ReelAccessibilityService : AccessibilityService() {
 
     private lateinit var windowManager: WindowManager
@@ -33,7 +41,7 @@ class ReelAccessibilityService : AccessibilityService() {
     )
 
     private var lastCountTime = 0L
-    private val debounceMs = 550L
+    private val debounceMs = 300L
 
     private var initialX = 0
     private var initialY = 0
@@ -52,7 +60,6 @@ class ReelAccessibilityService : AccessibilityService() {
             feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
             flags = AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
             notificationTimeout = 100
-            packageNames = targetPackages.toTypedArray()
         }
 
         setupOverlay()
@@ -61,6 +68,11 @@ class ReelAccessibilityService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         event ?: return
         val pkg = event.packageName?.toString() ?: return
+
+        if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+            setOverlayVisible(pkg in targetPackages)
+        }
+
         if (pkg !in targetPackages) return
         if (event.eventType != AccessibilityEvent.TYPE_VIEW_SCROLLED) return
 
@@ -68,6 +80,14 @@ class ReelAccessibilityService : AccessibilityService() {
         if (now - lastCountTime >= debounceMs) {
             lastCountTime = now
             incrementCount(pkg)
+        }
+    }
+
+    private fun setOverlayVisible(visible: Boolean) {
+        if (::overlayView.isInitialized) {
+            overlayView.post {
+                overlayView.visibility = if (visible) android.view.View.VISIBLE else android.view.View.GONE
+            }
         }
     }
 
@@ -105,6 +125,7 @@ class ReelAccessibilityService : AccessibilityService() {
             setTextColor(Color.WHITE)
             setBackgroundColor(0xCC1A1A1A.toInt())
             setPadding(28, 20, 28, 20)
+            visibility = android.view.View.GONE
         }
 
         val overlayType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
