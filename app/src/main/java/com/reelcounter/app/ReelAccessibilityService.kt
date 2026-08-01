@@ -151,4 +151,23 @@ class ReelAccessibilityService : AccessibilityService() {
         }
 
         overlayView.setOnLongClickListener {
-            re
+            resetIfNewDay()
+            prefs.edit().putInt("count_total", 0).apply()
+            overlayView.text = "0"
+            true
+        }
+
+        windowManager.addView(overlayView, params)
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        if (::windowManager.isInitialized && ::overlayView.isInitialized) {
+            try {
+                windowManager.removeView(overlayView)
+            } catch (e: Exception) {
+                // view already detached
+            }
+        }
+    }
+}
